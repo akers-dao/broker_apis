@@ -1,5 +1,5 @@
 
-const { decrypt } = require('./encryption')
+const { decrypt } = require('../../shared/encryption')
 
 const login = require('./login');
 const searchForStock = require('./search-for-stock');
@@ -9,21 +9,8 @@ const executeOptionOrder = require('./execute-option-order');
 
 
 
-async function makeARequest(req, res) {
+async function makeARequest(page, req, res) {
     try {
-        // const Request = {
-        //     stock: 'baba',
-        //     month: 'October',
-        //     date: '26',
-        //     amount: '$170',
-        //     quantity: '1',
-        //     price: '1.25',
-        //     password:'8e49b5280fe18de9d4fdaf6d2d5ccc89:2e3fce244a3dc288d07a37b8fa69cfae',
-        //     user:'akers.dao'
-        // }
-
-        // Login 
-        await login(page, req.body.user, decrypt(req.body.password));
 
         // Search for stock
         await searchForStock(page, req.body.stock);
@@ -58,11 +45,11 @@ async function makeARequest(req, res) {
         // take a screen shot
         await page.screenshot({ path: 'robinhood.png' });
         // browser.close();
-        res.status(200).send({ confirmationText: confirmationText.replace(/\n      /g, ' ') });
+        return { confirmationText: confirmationText.replace(/\n      /g, ' ') };
 
     } catch (error) {
-        console.error(error);
-        res.sendStatus(500);
+        // console.error(error);
+        return error
     }
 
 }
