@@ -13,7 +13,7 @@ async function login(browser, username, password) {
         const context = await browser.createIncognitoBrowserContext();
 
         // Create a new page inside context.
-        page = await context.newPage();
+        const page = await context.newPage();
 
         await page.setExtraHTTPHeaders({
             Referer: 'https://robinhood.com/'

@@ -2,6 +2,7 @@ const searchForStock = require('./search-for-stock');
 const selectExpirationDate = require('./select-expiration-date');
 const selectStrickPrice = require('./select-strick-price');
 const executeOptionOrder = require('./execute-option-order');
+const { decrypt } = require('../../shared/encryption');
 
 async function makeARequest(page, req) {
     try {
@@ -24,6 +25,7 @@ async function makeARequest(page, req) {
         // Execute option order
         await executeOptionOrder(page, req.body.quantity, req.body.price);
 
+        // Extract confirmation text
         const confirmationTextHandle = (await page.$x(`//*[@id="react_root"]/div/main/div[2]/div/div[1]/div/div/div/div[2]/div/div/form/div[1]/div[2]/div[1]`))[0];
 
         const confirmationText = await page.evaluate(confirmationText => {
@@ -32,6 +34,17 @@ async function makeARequest(page, req) {
 
         await page.click('[type="submit"]');
 
+        await page.waitFor(1000);
+
+        // check for the account verify page
+        const hasVerifyPage = (await page.$('[name="password"]')) !== null;
+
+        if (hasVerifyPage) {
+            await page.type('[name="password"]', decrypt(req.body.password));
+            await page.click('footer [type="submit"]');
+        }
+
+        // extract the purchase information
         await page.waitForSelector('.sidebar-content > div div.lined-row');
 
         const purchaseInfo = await page.evaluate(() =>

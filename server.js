@@ -48,7 +48,7 @@ app.route('/api/getSubscriptions').get(getSubscriptions);
 app.route('/api/login').post(async (req, res) => {
     try {
         browser = browser ? browser : await puppeteer.launch({
-            headless: true,
+            headless: false,
             defaultViewport: {
                 width: 1024,
                 height: 8000
