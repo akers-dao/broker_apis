@@ -1,15 +1,9 @@
-
-const { decrypt } = require('../../shared/encryption')
-
-const login = require('./login');
 const searchForStock = require('./search-for-stock');
 const selectExpirationDate = require('./select-expiration-date');
 const selectStrickPrice = require('./select-strick-price');
 const executeOptionOrder = require('./execute-option-order');
 
-
-
-async function makeARequest(page, req, res) {
+async function makeARequest(page, req) {
     try {
 
         // Search for stock
@@ -17,7 +11,7 @@ async function makeARequest(page, req, res) {
 
         // Click on `Trade xxx Options` button
         await page.click('.sidebar-buttons > a');
-        await page.waitForXPath('//*[@id="react_root"]/div/main/div[2]/div/div[1]/main/div/div/div/div[26]/button/span');
+        await page.waitForSelector('input');
 
         // Select expiration date from drop down
         await selectExpirationDate(page, req.body.month, req.body.date);
@@ -36,19 +30,20 @@ async function makeARequest(page, req, res) {
             return confirmationText.textContent
         }, confirmationTextHandle);
 
-        console.log(confirmationText.replace(/\n      /g, ' '));
-
         await page.click('[type="submit"]');
 
-        await page.waitForSelector('[type="button"]');
+        await page.waitForSelector('.sidebar-content > div div.lined-row');
 
-        // take a screen shot
-        await page.screenshot({ path: 'robinhood.png' });
-        // browser.close();
-        return { confirmationText: confirmationText.replace(/\n      /g, ' ') };
+        const purchaseInfo = await page.evaluate(() =>
+            Array.from(document.querySelectorAll('.sidebar-content > div div.lined-row'))
+                .map(e => Array.from(e.children)
+                    .map(c => c.textContent).join(' '))
+        );
+
+        return { confirmationText: confirmationText.replace(/\n      /g, ' '), purchaseInfo };
 
     } catch (error) {
-        // console.error(error);
+        console.error(error);
         return error
     }
 

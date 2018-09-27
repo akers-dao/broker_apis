@@ -40,15 +40,19 @@ app.route('/api/getSubscriptions').get(getSubscriptions);
  * Robinhood API
  * 
  * Request = {
- *   password:'8e49b5280fe18de9d4fdaf6d2d5ccc89:2e3fce244a3dc288d07a37b8fa69cfae',
- *   user:'akers.dao'
+ *   password:'xxxxxxxx',
+ *   user:'xxxxx'
  * }
  * Response = { token:1 }
  */
 app.route('/api/login').post(async (req, res) => {
     try {
-        browser = await puppeteer.launch({
-            headless: true
+        browser = browser ? browser : await puppeteer.launch({
+            headless: true,
+            defaultViewport: {
+                width: 1024,
+                height: 8000
+            }
         });
 
         const token = await login(browser, req.body.user, req.body.password);
@@ -62,7 +66,35 @@ app.route('/api/login').post(async (req, res) => {
             error
         });
     }
+});
 
+/**
+ * Robinhood API
+ * 
+ * Request = {
+ *   token: '1'
+ * }
+ * 
+ */
+app.route('/api/logout').post(async (req, res) => {
+    if (req.body.token && browser) {
+        try {
+            const browserContexts = browser.browserContexts().filter(b => b.isIncognito());
+            const context = browserContexts[req.body.token - 1];
+
+            context.close();
+
+            res.status(200).end();
+
+        } catch (error) {
+            res.status(500).json({
+                error
+            });
+            console.log(error)
+        }
+
+        return;
+    }
 });
 
 /**
@@ -75,30 +107,35 @@ app.route('/api/login').post(async (req, res) => {
  *   amount: '$170',
  *   quantity: '1',
  *   price: '1.25',
+ *   token: '1'
  * }
  * Response = { confirmationText }
  */
 app.route('/api/executeOptionOrder').post(async (req, res) => {
-    const browserContexts = browser.browserContexts();
-
-    if (req.token) {
+    if (req.body.token && browser) {
         try {
-            const context = browserContexts[req.token];
+            const browserContexts = browser.browserContexts().filter(b => b.isIncognito());
+            const context = browserContexts[req.body.token - 1];
 
-            // Get open pages inside context.
-            const browser = context.browser();
-            const page = (await browser.pages())[0];
+            if (context) {
+                // Get open pages inside context.
+                const ctxBrowser = context.browser();
+                const page = (await ctxBrowser.pages())[req.body.token];
 
-            const confirmationText = await executeOptionOrder(page, req, res);
+                const result = await executeOptionOrder(page, req, res);
 
-            res.status(200).json({
-                confirmationText
-            });
+                res.status(200).json({
+                    result
+                });
+            } else {
+                res.status(500).send('missing a context');
+            }
 
         } catch (error) {
             res.status(500).json({
                 error
             });
+            console.log(error)
         }
 
         return;
@@ -107,7 +144,6 @@ app.route('/api/executeOptionOrder').post(async (req, res) => {
     res.status(500).json({
         error: 'missing required token'
     });
-
 });
 
 

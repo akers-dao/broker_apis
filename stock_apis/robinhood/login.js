@@ -1,3 +1,5 @@
+const { decrypt } = require('../../shared/encryption')
+
 /**
  * Login
  *
@@ -13,11 +15,6 @@ async function login(browser, username, password) {
         // Create a new page inside context.
         page = await context.newPage();
 
-        await page.setViewport({
-            width: 1024,
-            height: 768
-        });
-
         await page.setExtraHTTPHeaders({
             Referer: 'https://robinhood.com/'
         });
@@ -25,16 +22,17 @@ async function login(browser, username, password) {
         // Login 
         await page.goto('https://robinhood.com/login');
         await page.type('[name="username"]', username);
-        await page.type('[name="password"]', password);
+        await page.type('[name="password"]', decrypt(password));
         await page.click('[type="submit"]');
-        await page.waitForNavigation({
-            timeout: 0,
-            waitUntil: 'networkidle0'
-        });
+        await page.waitForNavigation();
 
-        return browserContexts.length;
+        // take a screen shot
+        await page.screenshot({ path: 'robinhood.png' });
+
+        return browser.browserContexts().filter(b => b.isIncognito()).length;
 
     } catch (error) {
+        console.error(error)
         return error;
     }
 }

@@ -5,10 +5,12 @@
  * @param {string} stock
  */
 async function searchForStock(page, stock) {
-    await page.type('input', stock);
-    await page.waitForSelector('.Select-menu-outer');
-    await page.keyboard.down('Enter');
-    await page.waitForNavigation({ timeout: 0, waitUntil: 'networkidle0' });
+    try {
+        await page.goto(`https://robinhood.com/stocks/${stock.toUpperCase()}`);
+        await page.waitForSelector('.sidebar-buttons > a');
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 module.exports = searchForStock;
