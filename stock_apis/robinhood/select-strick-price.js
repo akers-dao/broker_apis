@@ -4,11 +4,16 @@
  * @param {Page} page
  * @param {string} amount
  */
-async function selectStrickPrice(page, amount) {
+async function selectStrickPrice(page, amount, type) {
     try {
+        await page.evaluate(type => {
+            const index = type === 'call' ? 0 : 1;
+            Array.from(document.querySelectorAll('footer button')).filter((e, i) => i > 1)[index].click()
+        }, type)
+
         await page.waitForResponse(response => {
-            return response.url().includes('https://nummus.robinhood.com/accounts/') && 
-            response.status() === 200
+            return response.url().includes('https://nummus.robinhood.com/accounts/') &&
+                response.status() === 200
         });
 
         // Get strike price table

@@ -18,7 +18,7 @@ async function makeARequest(page, req) {
         await selectExpirationDate(page, req.body.month, req.body.date);
 
         // Select strike price from table
-        await selectStrickPrice(page, req.body.amount);
+        await selectStrickPrice(page, req.body.amount, req.body.type);
 
         await page.waitFor(1000);
 
