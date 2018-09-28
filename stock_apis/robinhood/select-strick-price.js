@@ -4,7 +4,7 @@
  * @param {Page} page
  * @param {string} amount
  */
-async function selectStrickPrice(page, amount, type) {
+async function selectStrickPrice(page, amount, type = 'call') {
     try {
         await page.evaluate(type => {
             const index = type === 'call' ? 0 : 1;
