@@ -1,4 +1,5 @@
-const { decrypt } = require('../../shared/encryption')
+const { decrypt } = require('../../shared/encryption');
+const crypto = require('crypto');
 
 /**
  * Login
@@ -10,10 +11,15 @@ const { decrypt } = require('../../shared/encryption')
 async function login(browser, username, password) {
 
     try {
-        const context = await browser.createIncognitoBrowserContext();
+        const browserContext = await browser.createIncognitoBrowserContext();
+
+        // const token = browser.browserContexts().filter(b => b.isIncognito()).length
+
+        const token = crypto.createHash('md5').update(username + password).digest('hex');
+        browserContext.token = token;
 
         // Create a new page inside context.
-        const page = await context.newPage();
+        const page = await browserContext.newPage();
 
         await page.setExtraHTTPHeaders({
             Referer: 'https://robinhood.com/'
@@ -27,9 +33,9 @@ async function login(browser, username, password) {
         await page.waitForNavigation();
 
         // take a screen shot
-        await page.screenshot({ path: 'robinhood.png' });
+        // await page.screenshot({ path: 'robinhood.png' });
 
-        return browser.browserContexts().filter(b => b.isIncognito()).length;
+        return token;
 
     } catch (error) {
         console.error(error)
