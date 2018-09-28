@@ -8,10 +8,12 @@ async function userProfile(page) {
     try {
         await page.goto(`https://robinhood.com/account/settings`);
         await page.waitForSelector('[name="account"]');
-       return await page.evaluate(() => {
-           return Array.from(document.querySelectorAll('[name="account"] > div header div:nth-child(2) span'))
+        return await page.evaluate(() => {
+            const name = document.querySelector('.main-container h1').textContent
+            return Array.from(document.querySelectorAll('[name="account"] > div header div:nth-child(2) span'))
                 .filter((e, i) => i < 3)
-                .map(e => e.textContent);
+                .map(e => e.textContent)
+                .concat(name);
         })
     } catch (error) {
         console.error(error);
