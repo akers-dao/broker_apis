@@ -8,10 +8,11 @@ const sendNotifications = require('./notification/send-notifications');
 const login = require('./stock_apis/robinhood/login');
 const executeOptionOrder = require('./stock_apis/robinhood');
 const profile = require('./stock_apis/robinhood/profile');
+const account = require('./stock_apis/robinhood/account');
 const puppeteer = require('puppeteer');
 const { encrypt } = require('./shared/encryption')
 
-const adapter = new FileSync('.data/db.json');
+const adapter = new FileSync('tmp/db.json');
 const db = low(adapter);
 db.defaults({
     subscriptions: []
@@ -156,6 +157,36 @@ app.route('/api/profile').post(async (req, res) => {
 
                 const result = await profile(page);
                 const props = ['emailAddress', 'address', 'phoneNumber','name']
+                const response = result.reduce((acc, v, i) => {
+                    return { ...acc, [props[i]]: v }
+                }, {})
+                res.status(200).json(response);
+            } else {
+                res.status(500).send('missing a context');
+            }
+
+        } catch (error) {
+            res.status(500).json({
+                error
+            });
+            console.log(error)
+        }
+
+        return;
+    }
+});
+
+app.route('/api/account').post(async (req, res) => {
+    if (req.body.token && browser) {
+        try {
+            const context = getContext(browser, req.body.token);
+
+            if (context) {
+                // Get open pages inside context.
+                const page = await getPage(context, req.body.token);
+
+                const result = await account(page);
+                const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower','withdrawableCash']
                 const response = result.reduce((acc, v, i) => {
                     return { ...acc, [props[i]]: v }
                 }, {})
