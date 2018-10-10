@@ -13,8 +13,6 @@ async function login(browser, username, password) {
     try {
         const browserContext = await browser.createIncognitoBrowserContext();
 
-        // const token = browser.browserContexts().filter(b => b.isIncognito()).length
-
         const token = crypto.createHash('md5').update(username + password).digest('hex');
         browserContext.token = token;
 
@@ -31,9 +29,6 @@ async function login(browser, username, password) {
         await page.type('[name="password"]', decrypt(password));
         await page.click('[type="submit"]');
         await page.waitForNavigation();
-
-        // take a screen shot
-        // await page.screenshot({ path: 'robinhood.png' });
 
         return token;
 

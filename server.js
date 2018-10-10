@@ -10,7 +10,9 @@ const executeOptionOrder = require('./stock_apis/robinhood');
 const profile = require('./stock_apis/robinhood/profile');
 const account = require('./stock_apis/robinhood/account');
 const puppeteer = require('puppeteer');
-const { encrypt } = require('./shared/encryption')
+const { encrypt } = require('./shared/encryption');
+const { from } = require('rxjs');
+const { mergeMap, toArray, tap } = require('rxjs/operators');
 
 const adapter = new FileSync('tmp/db.json');
 const db = low(adapter);
@@ -122,7 +124,7 @@ app.route('/api/executeOptionOrder').post(async (req, res) => {
                 // Get open pages inside context.
                 const page = await getPage(context, req.body.token);
 
-                const result = await executeOptionOrder(page, req, res);
+                const result = await executeOptionOrder(page, req.body);
 
                 res.status(200).json({
                     result
@@ -130,6 +132,87 @@ app.route('/api/executeOptionOrder').post(async (req, res) => {
             } else {
                 res.status(500).send('missing a context');
             }
+
+        } catch (error) {
+            res.status(500).json({
+                error
+            });
+            console.log(error)
+        }
+
+        return;
+    }
+
+    res.status(500).json({
+        error: 'missing required token'
+    });
+});
+
+app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
+    if (Array.isArray(req.body) && browser) {
+        try {
+
+            from(req.body)
+                .pipe(
+                    mergeMap(async (order, index) => {
+                        if (order.token) {
+                            const context = getContext(browser, order.token);
+
+                            if (context) {
+                                // Get open pages inside context.
+                                const page = await getPage(context, order.token);
+
+                                const result = await executeOptionOrder(page, req.body[index]);
+
+                                return { token: order.token, result };
+
+                            } else {
+                                return { token: order.token, error: 'missing a context' };
+                            }
+
+                        } else {
+                            return { index, error: 'missing a token' };
+                        }
+                    }),
+                    toArray(),
+                    tap(orders => {
+                        res.status(200).json({
+                            orders
+                        });
+                    })
+                )
+                .subscribe()
+
+            // const orderList = await new Promise((resolve, reject) => {
+            //     const orders = [];
+
+            //     req.body.forEach(async (order, index) => {
+            //         if (order.token) {
+            //             const context = getContext(browser, order.token);
+
+            //             if (context) {
+            //                 // Get open pages inside context.
+            //                 const page = await getPage(context, order.token);
+
+            //                 const result = await executeOptionOrder(page, req.body[index]);
+
+            //                 orders.push({ token: order.token, result });
+
+            //             } else {
+            //                 orders.push({ token: order.token, error: 'missing a context' });
+            //             }
+
+            //         } else {
+            //             orders.push({ index, error: 'missing a token' });
+            //         }
+            //     });
+            //     console.log(orders);
+            //     resolve(orders);
+            // });
+
+            // res.status(200).json({
+            //     orderList
+            // });
 
         } catch (error) {
             res.status(500).json({
@@ -156,7 +239,7 @@ app.route('/api/profile').post(async (req, res) => {
                 const page = await getPage(context, req.body.token);
 
                 const result = await profile(page);
-                const props = ['emailAddress', 'address', 'phoneNumber','name']
+                const props = ['emailAddress', 'address', 'phoneNumber', 'name'];
                 const response = result.reduce((acc, v, i) => {
                     return { ...acc, [props[i]]: v }
                 }, {})
@@ -186,7 +269,7 @@ app.route('/api/account').post(async (req, res) => {
                 const page = await getPage(context, req.body.token);
 
                 const result = await account(page);
-                const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower','withdrawableCash']
+                const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower', 'withdrawableCash']
                 const response = result.reduce((acc, v, i) => {
                     return { ...acc, [props[i]]: v }
                 }, {})

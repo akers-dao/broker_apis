@@ -18,6 +18,7 @@ async function executeOptionOrder(page, quantity, price) {
         
     } catch (error) {
         console.log(error);
+        return error;
     }
 }
 

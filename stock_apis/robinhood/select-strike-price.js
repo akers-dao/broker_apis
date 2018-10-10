@@ -4,7 +4,7 @@
  * @param {Page} page
  * @param {string} amount
  */
-async function selectStrickPrice(page, amount, type = 'call') {
+async function selectStrikePrice(page, amount, type = 'call') {
     try {
         await page.evaluate(type => {
             const index = type === 'call' ? 0 : 1;
@@ -18,13 +18,16 @@ async function selectStrickPrice(page, amount, type = 'call') {
 
         // Get strike price table
         const strikePriceTable = await page.$$eval('.row > div > div', el =>
-            Array.from(el).map(e => e.querySelector('h3')).filter(e => e !== null).map(e => e.textContent)
+            Array.from(document.querySelectorAll('.row > div > div'))
+                .map(e => e.querySelector('h3'))
+                .filter(e => e !== null)
+                .map(e => e.textContent !== 'Trade Options' ? e.textContent.match(/\$\d*/)[0] : '')
         )
 
-        const strickPriceIndex = strikePriceTable.findIndex(s => s === amount)
+        const strikePriceIndex = strikePriceTable.findIndex(s => s === amount)
 
         // select the strike price
-        let btn = (await page.$x(`//*[@id="react_root"]/div/main/div[2]/div/div[1]/main/div/div/div/div[${strickPriceIndex + 1}]/div/div/div/div[1]/div[6]/h3/div`))[0];
+        let btn = (await page.$x(`//*[@id="react_root"]/div/main/div[2]/div/div[1]/main/div/div/div/div[${strikePriceIndex + 1}]/div/div/div/div[1]/div[6]/h3/div`))[0];
         btn.click();
 
     } catch (error) {
@@ -32,4 +35,4 @@ async function selectStrickPrice(page, amount, type = 'call') {
     }
 }
 
-module.exports = selectStrickPrice;
+module.exports = selectStrikePrice;
