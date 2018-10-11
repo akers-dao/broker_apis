@@ -7,13 +7,14 @@
   "description": "A simple Node app built on Express, instantly up and running.",
   "main": "server.js",
   "scripts": {
-    "start": "export ENCRYPTION_KEY=\"zg7Rrirm7TYGL>JZachuGfyEgxmqUVaX\" && node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.16.3",
-    "web-push": "^3.3.2",
     "lowdb": "^1.0.0",
-    "puppeteer": "^1.8.0"
+    "puppeteer": "^1.8.0",
+    "rxjs": "^6.3.3",
+    "web-push": "^3.3.2"
   },
   "engines": {
     "node": "8.x"
