@@ -151,7 +151,6 @@ app.route('/api/executeOptionOrder').post(async (req, res) => {
 app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
     if (Array.isArray(req.body) && browser) {
         try {
-
             from(req.body)
                 .pipe(
                     mergeMap(async (order, index) => {
@@ -181,39 +180,7 @@ app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
                         });
                     })
                 )
-                .subscribe()
-
-            // const orderList = await new Promise((resolve, reject) => {
-            //     const orders = [];
-
-            //     req.body.forEach(async (order, index) => {
-            //         if (order.token) {
-            //             const context = getContext(browser, order.token);
-
-            //             if (context) {
-            //                 // Get open pages inside context.
-            //                 const page = await getPage(context, order.token);
-
-            //                 const result = await executeOptionOrder(page, req.body[index]);
-
-            //                 orders.push({ token: order.token, result });
-
-            //             } else {
-            //                 orders.push({ token: order.token, error: 'missing a context' });
-            //             }
-
-            //         } else {
-            //             orders.push({ index, error: 'missing a token' });
-            //         }
-            //     });
-            //     console.log(orders);
-            //     resolve(orders);
-            // });
-
-            // res.status(200).json({
-            //     orderList
-            // });
-
+                .subscribe();
         } catch (error) {
             res.status(500).json({
                 error
