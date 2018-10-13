@@ -213,7 +213,7 @@ app.route('/api/profile').post(async (req, res) => {
                 const page = await getPage(context, req.body.token);
 
                 const result = await profile(page);
-                const props = ['emailAddress', 'address', 'phoneNumber', 'name'];
+                const props = ['emailAddress', 'address', 'phoneNumber', 'name', 'option'];
                 const response = result.reduce((acc, v, i) => {
                     return { ...acc, [props[i]]: v }
                 }, {})
