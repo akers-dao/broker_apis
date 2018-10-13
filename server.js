@@ -56,7 +56,7 @@ app.route('/api/getSubscriptions').get(getSubscriptions);
 app.route('/api/login').post(async (req, res) => {
     try {
         browser = browser ? browser : await puppeteer.launch({
-            headless: true,
+            headless: false,
             defaultViewport: {
                 width: 1024,
                 height: 8000
@@ -70,11 +70,28 @@ app.route('/api/login').post(async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({
-            error
-        });
+        errorhandler(error);
     }
 });
+
+app.use(async function (req, res, next) {
+    if (req.body.orders === undefined) {
+        if (req.body.token === undefined || browser === undefined) {
+            res.status(500).json({ error: 'missing a context' });
+            return;
+        }
+
+        // Get open pages inside context.
+        res.locals.context = getContext(browser, req.body.token);
+        if (res.locals.context === undefined) {
+            res.status(500).json({ error: 'missing a context' });
+            return;
+        }
+
+        res.locals.page = await getPage(res.locals.context, req.body.token);
+    }
+    next();
+})
 
 /**
  * Robinhood API
@@ -85,22 +102,15 @@ app.route('/api/login').post(async (req, res) => {
  * 
  */
 app.route('/api/logout').post(async (req, res) => {
-    if (req.body.token && browser) {
-        try {
-            const context = getContext(browser, req.body.token);
-
-            context.close();
-
-            res.status(200).end();
-
-        } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
-        }
-
-        return;
+    try {
+        res.locals.context.close();
+        res.status(200).json({ token: req.body.token, sucess: 'ok' });
+    } catch (error) {
+        res.status(500).json({
+            token: req.body.token,
+            error: JSON.stringify(error.stack)
+        });
+        console.log(error)
     }
 });
 
@@ -119,36 +129,14 @@ app.route('/api/logout').post(async (req, res) => {
  * Response = { confirmationText }
  */
 app.route('/api/executeOptionOrder').post(async (req, res) => {
-    if (req.body.token && browser) {
-        try {
-            const context = getContext(browser, req.body.token);
-
-            if (context) {
-                // Get open pages inside context.
-                const page = await getPage(context, req.body.token);
-
-                const result = await buyOption(page, req.body);
-
-                res.status(200).json({
-                    result
-                });
-            } else {
-                res.status(500).send('missing a context');
-            }
-
-        } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
-        }
-
-        return;
+    try {
+        const result = await buyOption(res.locals.page, req.body);
+        res.status(200).json({
+            result
+        });
+    } catch (error) {
+        errorhandler(error);
     }
-
-    res.status(500).json({
-        error: 'missing required token'
-    });
 });
 
 app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
@@ -189,10 +177,7 @@ app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
                 )
                 .subscribe();
         } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
+            errorhandler(error);
         }
 
         return;
@@ -204,89 +189,38 @@ app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
 });
 
 app.route('/api/profile').post(async (req, res) => {
-    if (req.body.token && browser) {
-        try {
-            const context = getContext(browser, req.body.token);
-
-            if (context) {
-                // Get open pages inside context.
-                const page = await getPage(context, req.body.token);
-
-                const result = await profile(page);
-                const props = ['emailAddress', 'address', 'phoneNumber', 'name', 'option'];
-                const response = result.reduce((acc, v, i) => {
-                    return { ...acc, [props[i]]: v }
-                }, {})
-                res.status(200).json(response);
-            } else {
-                res.status(500).send('missing a context');
-            }
-
-        } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
-        }
-
-        return;
+    try {
+        const result = await profile(res.locals.page);
+        const props = ['emailAddress', 'address', 'phoneNumber', 'name', 'option'];
+        const response = result.reduce((acc, v, i) => {
+            return { ...acc, [props[i]]: v }
+        }, {})
+        res.status(200).json(response);
+    } catch (error) {
+        errorhandler(error);
     }
+
 });
 
 app.route('/api/account').post(async (req, res) => {
-    if (req.body.token && browser) {
-        try {
-            const context = getContext(browser, req.body.token);
-
-            if (context) {
-                // Get open pages inside context.
-                const page = await getPage(context, req.body.token);
-
-                const result = await account(page);
-                const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower', 'withdrawableCash']
-                const response = result.reduce((acc, v, i) => {
-                    return { ...acc, [props[i]]: v }
-                }, {})
-                res.status(200).json(response);
-            } else {
-                res.status(500).send('missing a context');
-            }
-
-        } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
-        }
-
-        return;
+    try {
+        const result = await account(res.locals.page);
+        const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower', 'withdrawableCash']
+        const response = result.reduce((acc, v, i) => {
+            return { ...acc, [props[i]]: v }
+        }, {})
+        res.status(200).json(response);
+    } catch (error) {
+        errorhandler(error);
     }
 });
 
 app.route('/api/sellOption').post(async (req, res) => {
-    if (req.body.token && browser) {
-        try {
-            const context = getContext(browser, req.body.token);
-
-            if (context) {
-                // Get open pages inside context.
-                const page = await getPage(context, req.body.token);
-
-                const result = await sellOption(page, req.body.option, req.body.price, req.body.contracts);
-
-                res.status(200).json({ result });
-            } else {
-                res.status(500).send('missing a context');
-            }
-
-        } catch (error) {
-            res.status(500).json({
-                error
-            });
-            console.log(error)
-        }
-
-        return;
+    try {
+        const result = await sellOption(res.locals.page, req.body.option, req.body.price, req.body.contracts);
+        res.status(200).json({ result });
+    } catch (error) {
+        errorhandler(error);
     }
 });
 
@@ -301,5 +235,12 @@ app.route('/api/encrypt').post((req, res) => {
 
     res.status(500).send('missing value to encrypt');
 });
+
+function errorhandler(error) {
+    res.status(500).json({
+        error
+    });
+    console.log(error)
+}
 
 app.listen(3000, () => console.log('Beanvest Web Notification App listening on port 3000!'));
