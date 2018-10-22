@@ -6,16 +6,19 @@ const saveSubscription = require('./notification/save-subscription');
 const getSubscriptions = require('./notification/get-subscriptions');
 const sendNotifications = require('./notification/send-notifications');
 const login = require('./stock_apis/robinhood/login');
-const buyOption = require('./stock_apis/robinhood/buy-option');
+const { buyOption } = require('./stock_apis/robinhood/buy-option');
 const profile = require('./stock_apis/robinhood/profile');
 const account = require('./stock_apis/robinhood/account');
 const sellOption = require('./stock_apis/robinhood/sell-option');
+const getOptionsInstruments = require('./stock_apis/robinhood/get-options-instruments');
 const puppeteer = require('puppeteer');
 const { encrypt } = require('./shared/encryption');
 const getContext = require('./shared/get-context');
 const getPage = require('./shared/get-page');
 const { from } = require('rxjs');
 const { mergeMap, toArray, tap } = require('rxjs/operators');
+const errorhandler = require('errorhandler');
+const notifier = require('node-notifier');
 
 const adapter = new FileSync('tmp/db.json');
 const db = low(adapter);
@@ -26,6 +29,11 @@ db.defaults({
 let browser;
 
 const app = express();
+
+if (process.env.NODE_ENV === 'development') {
+    // only use in development
+    app.use(errorhandler({ log: false }))
+}
 
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
@@ -56,7 +64,7 @@ app.route('/api/getSubscriptions').get(getSubscriptions);
 app.route('/api/login').post(async (req, res) => {
     try {
         browser = browser ? browser : await puppeteer.launch({
-            headless: false,
+            headless: true,
             defaultViewport: {
                 width: 1024,
                 height: 8000
@@ -70,7 +78,7 @@ app.route('/api/login').post(async (req, res) => {
         });
 
     } catch (error) {
-        errorhandler(error);
+        catchErrorhandler(error);
     }
 });
 
@@ -104,7 +112,7 @@ app.use(async function (req, res, next) {
 app.route('/api/logout').post(async (req, res) => {
     try {
         res.locals.context.close();
-        res.status(200).json({ token: req.body.token, sucess: 'ok' });
+        res.status(200).json({ token: req.body.token, success: 'ok' });
     } catch (error) {
         res.status(500).json({
             token: req.body.token,
@@ -119,8 +127,7 @@ app.route('/api/logout').post(async (req, res) => {
  * 
  * Request = {
  *   stock: 'baba',
- *   month: 'October',
- *   date: '26',
+ *   date: 'October 26',
  *   amount: '$170',
  *   quantity: '1',
  *   price: '1.25',
@@ -135,7 +142,7 @@ app.route('/api/executeOptionOrder').post(async (req, res) => {
             result
         });
     } catch (error) {
-        errorhandler(error);
+        catchErrorhandler(error);
     }
 });
 
@@ -177,7 +184,7 @@ app.route('/api/batchExecuteOptionOrder').post(async (req, res) => {
                 )
                 .subscribe();
         } catch (error) {
-            errorhandler(error);
+            catchErrorhandler(error);
         }
 
         return;
@@ -197,7 +204,7 @@ app.route('/api/profile').post(async (req, res) => {
         }, {})
         res.status(200).json(response);
     } catch (error) {
-        errorhandler(error);
+        catchErrorhandler(error);
     }
 
 });
@@ -211,7 +218,7 @@ app.route('/api/account').post(async (req, res) => {
         }, {})
         res.status(200).json(response);
     } catch (error) {
-        errorhandler(error);
+        catchErrorhandler(error);
     }
 });
 
@@ -220,7 +227,16 @@ app.route('/api/sellOption').post(async (req, res) => {
         const result = await sellOption(res.locals.page, req.body.option, req.body.price, req.body.contracts);
         res.status(200).json({ result });
     } catch (error) {
-        errorhandler(error);
+        catchErrorhandler(error);
+    }
+});
+
+app.route('/api/optionsInstruments').post(async (req, res) => {
+    try {
+        const result = await getOptionsInstruments(res.locals.page, req.body.stock, req.body.date, req.body.type);
+        res.status(200).json({ result });
+    } catch (error) {
+        catchErrorhandler(error);
     }
 });
 
@@ -236,7 +252,7 @@ app.route('/api/encrypt').post((req, res) => {
     res.status(500).send('missing value to encrypt');
 });
 
-function errorhandler(error) {
+function catchErrorhandler(error) {
     res.status(500).json({
         error
     });

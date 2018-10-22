@@ -128,7 +128,7 @@ async function executeOptionOrder(page, quantity, price) {
         await page.click('[type="button"]');
 
         await page.type('[name="quantity"]', quantity);
-        
+
         const bid = await page.evaluate(() => {
             return document.querySelector('form label:nth-child(2) > div > div > div:nth-child(2)')
                 .textContent
@@ -149,4 +149,4 @@ async function executeOptionOrder(page, quantity, price) {
     }
 }
 
-module.exports = buyOption;
+module.exports = { buyOption, selectExpirationDate };
