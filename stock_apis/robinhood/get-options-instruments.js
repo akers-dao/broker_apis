@@ -1,6 +1,6 @@
 const { selectExpirationDate } = require('./buy-option');
 const searchForStock = require('./search-for-stock');
-const request = require('request-promise-native')
+const request = require('request-promise-native');
 
 /**
  * User profile

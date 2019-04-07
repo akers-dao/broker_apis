@@ -15,10 +15,15 @@ const puppeteer = require('puppeteer');
 const { encrypt } = require('./shared/encryption');
 const getContext = require('./shared/get-context');
 const getPage = require('./shared/get-page');
+const getStockInfo = require('./shared/get-stock-info');
+const getEarningsList = require('./stock_apis/earnings_whispers/get-earnings-List');
 const { from } = require('rxjs');
 const { mergeMap, toArray, tap } = require('rxjs/operators');
 const errorhandler = require('errorhandler');
 const notifier = require('node-notifier');
+const md = require('markdown-it')({ breaks: true });
+
+require('events').EventEmitter.defaultMaxListeners = 150;
 
 const adapter = new FileSync('tmp/db.json');
 const db = low(adapter);
@@ -26,7 +31,7 @@ db.defaults({
     subscriptions: []
 }).write();
 
-let browser;
+let browser, earingsBrowser;
 
 const app = express();
 
@@ -80,6 +85,75 @@ app.route('/api/login').post(async (req, res) => {
     } catch (error) {
         catchErrorhandler(error);
     }
+});
+
+app.route('/api/earningsList/:view').get(earningsList);
+
+app.route('/api/earningsList').post(earningsList);
+
+async function earningsList(req, res) {
+    try {
+        earingsBrowser = await puppeteer.launch({
+            headless: true,
+            defaultViewport: {
+                width: 1024,
+                height: 8000
+            }
+        });
+
+        const result = await getEarningsList(earingsBrowser, req.body.day);
+
+        if (req.params.view === 'full') {
+            const markdown = result
+                .map(v =>
+                    `
+## ${v.company} (${v.symbol})
+---
+| First Header  | Second Header |
+| ------------- | ------------- |
+| Content Cell  | Content Cell  |
+| Content Cell  | Content Cell  |
+
+`
+                )
+                .join('\n');
+            res.status(200).send(md.render(markdown));
+        } else {
+            res.status(200).json({ result });
+        }
+
+    } catch (error) {
+        catchErrorhandler(error);
+    }
+}
+
+app.route('/api/stockInfo').post(async (req, res) => {
+    try {
+        const browser = await puppeteer.launch({
+            headless: true,
+            defaultViewport: {
+                width: 1024,
+                height: 8000
+            }
+        });
+
+        const result = await getStockInfo(browser, req.body.symbol);
+        res.status(200).json({ result });
+    } catch (error) {
+        catchErrorhandler(error);
+    }
+});
+
+/**
+ * Encrypt value used for APIs
+ */
+app.route('/api/encrypt').post((req, res) => {
+    if (req.body.value) {
+        res.status(200).send(encrypt(req.body.value));
+        return;
+    }
+
+    res.status(500).send('missing value to encrypt');
 });
 
 app.use(async function (req, res, next) {
@@ -238,18 +312,6 @@ app.route('/api/optionsInstruments').post(async (req, res) => {
     } catch (error) {
         catchErrorhandler(error);
     }
-});
-
-/**
- * Encrypt value used for APIs
- */
-app.route('/api/encrypt').post((req, res) => {
-    if (req.body.value) {
-        res.status(200).send(encrypt(req.body.value));
-        return;
-    }
-
-    res.status(500).send('missing value to encrypt');
 });
 
 function catchErrorhandler(error) {
