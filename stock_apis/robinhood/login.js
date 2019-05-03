@@ -18,6 +18,13 @@ async function login(browser, username, password) {
 
         // Create a new page inside context.
         const page = await browserContext.newPage();
+        page.setCookie({
+            name:'device_id',
+            value: '2df69dda-d90f-4636-ba96-37bb6c037887',
+            domain: '.robinhood.com',
+            path: '/',
+            expires: 1872267067000
+        });
 
         await page.setExtraHTTPHeaders({
             Referer: 'https://robinhood.com/'

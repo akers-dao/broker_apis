@@ -19,7 +19,7 @@ async function buyOption(page, req) {
         // Select strike price from table
         await selectStrikePrice(page, req.amount, req.type);
 
-        await page.waitFor(1000);
+        await page.waitFor('form [type="button"]');
 
         // Execute option order
         await executeOptionOrder(page, req.quantity, req.price);
@@ -97,19 +97,20 @@ async function selectStrikePrice(page, amount, type = 'call') {
                 response.status() === 200
         });
 
-        // Get strike price table
-        const strikePriceTable = await page.$$eval('.row > div > div', el =>
-            Array.from(document.querySelectorAll('.row > div > div'))
+        await page.evaluate((amount) => {
+            // Get strike price table
+            const strikePriceTable = Array.from(document.querySelectorAll('.row > div > div'))
                 .map(e => e.querySelector('h3'))
                 .filter(e => e !== null)
                 .map(e => e.textContent !== 'Trade Options' ? e.textContent.match(/\$\d*/)[0] : '')
-        )
 
-        const strikePriceIndex = strikePriceTable.findIndex(s => s === amount)
+            const strikePriceIndex = strikePriceTable.findIndex(s => s === amount);
 
-        // select the strike price
-        let btn = (await page.$x(`//*[@id="react_root"]/div/main/div[2]/div/div[1]/main/div/div/div/div[${strikePriceIndex + 1}]/div/div/div/div[1]/div[6]/h3/div`))[0];
-        btn.click();
+            // select the strike price
+            const strikePriceBtn = document.querySelectorAll('.row > div > div')[strikePriceIndex].querySelector('div:nth-of-type(6) > h3  > div > div:nth-child(2)');
+
+            strikePriceBtn.click();
+        }, amount)
 
     } catch (error) {
         console.error(error)
@@ -125,23 +126,25 @@ async function selectStrikePrice(page, amount, type = 'call') {
  */
 async function executeOptionOrder(page, quantity, price) {
     try {
-        await page.click('[type="button"]');
+        await page.click('form [type="button"]');
 
-        await page.type('[name="quantity"]', quantity);
+        await page.waitFor('form [name="quantity"]');
+
+        await page.type('form [name="quantity"]', quantity);
 
         const bid = await page.evaluate(() => {
-            return document.querySelector('form label:nth-child(2) > div > div > div:nth-child(2)')
+            return document.querySelector('form > div > div > div > div:nth-of-type(2)')
                 .textContent
                 .match(/\$\d.\d{2}/)[0];
         })
 
         price = isEmpty(price) ? bid : price;
 
-        await page.type('[name="price"]', price);
+        await page.type('form [name="price"]', price);
 
-        await page.click('[type="submit"]');
+        await page.click('form [type="submit"]');
 
-        await page.waitForSelector('[type="button"]');
+        await page.waitForSelector('form [type="button"]');
 
     } catch (error) {
         console.log(error);

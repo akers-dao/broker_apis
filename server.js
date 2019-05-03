@@ -1,4 +1,7 @@
+require('dotenv').config();
 const express = require('express');
+const WebSocket = require('ws');
+const http = require('http');
 const bodyParser = require('body-parser');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
@@ -16,6 +19,7 @@ const { encrypt } = require('./shared/encryption');
 const getContext = require('./shared/get-context');
 const getPage = require('./shared/get-page');
 const getStockInfo = require('./shared/get-stock-info');
+const getStockPrice = require('./stock_apis/robinhood/get-stock-price');
 const getEarningsList = require('./stock_apis/earnings_whispers/get-earnings-List');
 const { from } = require('rxjs');
 const { mergeMap, toArray, tap } = require('rxjs/operators');
@@ -31,7 +35,7 @@ db.defaults({
     subscriptions: []
 }).write();
 
-let browser, earingsBrowser;
+let browser, earingsBrowser, context;
 
 const app = express();
 
@@ -107,14 +111,14 @@ async function earningsList(req, res) {
             const markdown = result
                 .map(v =>
                     `
-## ${v.company} (${v.symbol})
----
-| First Header  | Second Header |
-| ------------- | ------------- |
-| Content Cell  | Content Cell  |
-| Content Cell  | Content Cell  |
+                        ## ${v.company} (${v.symbol})
+                        ---
+                        | First Header  | Second Header |
+                        | ------------- | ------------- |
+                        | Content Cell  | Content Cell  |
+                        | Content Cell  | Content Cell  |
 
-`
+                    `
                 )
                 .join('\n');
             res.status(200).send(md.render(markdown));
@@ -156,6 +160,35 @@ app.route('/api/encrypt').post((req, res) => {
     res.status(500).send('missing value to encrypt');
 });
 
+/** TODO: ADD WebSocket  */
+//initialize the WebSocket server instance
+const wss = new WebSocket.Server({
+    port: 8080
+});
+
+wss.on('connection', (ws) => {
+    ws.isAlive = true;
+    //connection is up, let's add a simple simple event
+    ws.on('message', async (message) => {
+        try {
+            const m = JSON.parse(message);
+            const page = await getPage(context, m.token)
+            const result = await getStockPrice(page, m.stock);
+            console.log('received: %s', { result });
+            ws.send({ result });
+        } catch (error) {
+            console.error(error)
+        }
+    });
+
+    //send immediatly a feedback to the incoming connection    
+    ws.send('Hi there, I am a WebSocket server');
+    ws.on('open', function open() {
+        ws.send('something');
+    });
+});
+/** TODO: ADD WebSocket  */
+
 app.use(async function (req, res, next) {
     if (req.body.orders === undefined) {
         if (req.body.token === undefined || browser === undefined) {
@@ -164,13 +197,18 @@ app.use(async function (req, res, next) {
         }
 
         // Get open pages inside context.
-        res.locals.context = getContext(browser, req.body.token);
+        context = getContext(browser, req.body.token);
+        res.locals.context = context;
         if (res.locals.context === undefined) {
             res.status(500).json({ error: 'missing a context' });
             return;
         }
 
-        res.locals.page = await getPage(res.locals.context, req.body.token);
+        try {
+            res.locals.page = await getPage(res.locals.context, req.body.token);
+        } catch (error) {
+            catchErrorhandler(error);
+        }
     }
     next();
 })
@@ -286,11 +324,11 @@ app.route('/api/profile').post(async (req, res) => {
 app.route('/api/account').post(async (req, res) => {
     try {
         const result = await account(res.locals.page);
-        const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower', 'withdrawableCash']
-        const response = result.reduce((acc, v, i) => {
-            return { ...acc, [props[i]]: v }
-        }, {})
-        res.status(200).json(response);
+        // const props = ['dayTrades', 'robinhoodGoldHealth', 'buyingPower', 'withdrawableCash']
+        // const response = result.reduce((acc, v, i) => {
+        //     return { ...acc, [props[i]]: v }
+        // }, {})
+        res.status(200).json(result);
     } catch (error) {
         catchErrorhandler(error);
     }
@@ -308,6 +346,15 @@ app.route('/api/sellOption').post(async (req, res) => {
 app.route('/api/optionsInstruments').post(async (req, res) => {
     try {
         const result = await getOptionsInstruments(res.locals.page, req.body.stock, req.body.date, req.body.type);
+        res.status(200).json({ result });
+    } catch (error) {
+        catchErrorhandler(error);
+    }
+});
+
+app.route('/api/stockPrice').post(async (req, res) => {
+    try {
+        const result = await getStockPrice(res.locals.page, req.body.stock);
         res.status(200).json({ result });
     } catch (error) {
         catchErrorhandler(error);
